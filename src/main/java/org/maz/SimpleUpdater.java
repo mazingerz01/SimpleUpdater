@@ -1,17 +1,24 @@
 package org.maz;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.net.URL;
 import java.net.URLConnection;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Optional;
 
-public class HtmlReader {
 
+public class SimpleUpdater {
+
+    /**
+     * Reads data represented by the URL e.g. a website and searches for an arbitrary HTML element with the given
+     * id. E.g. &#x3c;div id="version"&#x3e;1.0.4&#x3c;/div&#x3e;
+     *
+     * @return the inner HTML text of this element, which should represent a version string.
+     */
     public static String getVersionText(URL url, String elementId) throws IOException, ElementNotFoundException {
         URLConnection connection = url.openConnection();
         String encoding = connection.getContentEncoding();
@@ -53,5 +60,35 @@ public class HtmlReader {
                 return false;
         }
         return false;
+    }
+
+
+    public static void updateAndRestart(Path currentVersion, Path newVersion) {
+        // Prepare .bat for restarting.
+
+        try {
+            BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter("restart.bat"));
+            BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(SimpleUpdater.class.getClassLoader().getResourceAsStream("restartTemplate.bat"), StandardCharsets.UTF_8));
+            for (String line : bufferedReader.lines().toList()) {
+                bufferedWriter.append(line.replace("$CURRENT_VERSION", currentVersion.toFile().getName().replace("$NEW_VERSION", newVersion.toFile().getName())));
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+
+        System.out.println("x");
+        ProcessBuilder processBuilder = new ProcessBuilder("cmd", "/C", restartBat.toFile().getName());
+        //processBuilder.directory(new File("C:\\data\\temp"));
+        try {
+            processBuilder.inheritIO();
+            processBuilder.redirectError(ProcessBuilder.Redirect.DISCARD);
+            processBuilder.redirectOutput(ProcessBuilder.Redirect.DISCARD);
+            processBuilder.start();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+
     }
 }
