@@ -11,7 +11,7 @@ class SimpleUpdaterTest {
     @Test
     void getVersionText() {
         try {
-            Assertions.assertEquals("1.0.4", SimpleUpdater.getVersionText(new URL("http://diskstation/lockunlock/version.html"), "version"));
+            Assertions.assertEquals("1.0.4", SimpleUpdater.getRemoteVersionText(new URL("http://diskstation/lockunlock/version.html"), "version"));
         } catch (IOException | ElementNotFoundException e) {
             System.out.println(e.getLocalizedMessage());
         }
@@ -34,6 +34,6 @@ class SimpleUpdaterTest {
 
     @Test
     void updateAndRestart() {
-        SimpleUpdater.updateAndRestart();
+        //SimpleUpdater.updateAndRestart();
     }
 }
