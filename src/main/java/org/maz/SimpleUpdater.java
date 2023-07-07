@@ -9,7 +9,6 @@ import java.io.*;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -71,18 +70,20 @@ public class SimpleUpdater {
 	 * After downloading and extracting the new version contained in a temporary directory, start this method and exit your application.
 	 * The current version directory will be deleted and the temporary directory will be renamed to the name of the latter.
 	 *
-	 * @param currentVersion The directory containing all files of the current version.
-	 * @param newVersion     The temporary directory containing all files of the new version.
+	 * @param currentVersion The directory containing all files of the current version. e.g.: [pathTo]/MyApp containing
+	 *                       MyApp/myApp.exe, MyApp/myAppResources,...
+	 * @param newVersion     The temporary directory containing all files of the new version incl. an executable.
+	 * @param executable     Name of the executable to be started after updating.
 	 */
-	public static void updateAndRestart(Path currentVersion, Path newVersion) throws IOException {
-		//TODO check both params if dirs, find executable in newVersion, put this in .bat
+	public static void updateAndRestart(File currentVersion, File newVersion, String executable) throws IOException {
+		if (!(currentVersion.exists() && currentVersion.isDirectory() && newVersion.exists() && newVersion.isDirectory()))
+			throw new IOException("Provided paths are not existent or not a directory.");
 
-		// Prepare .bat for restarting.
 		File restartBat = new File("restart.bat");
 		BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(restartBat.getName()));
 		BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(SimpleUpdater.class.getClassLoader().getResourceAsStream("restartTemplate.bat"), StandardCharsets.UTF_8));
 		for (String line : bufferedReader.lines().toList()) {
-			bufferedWriter.append(line.replace("$CURRENT_VERSION", currentVersion.toFile().getName().replace("$NEW_VERSION", newVersion.toFile().getName())));
+			bufferedWriter.append(line.replace("$CURRENT_VERSION", currentVersion.getPath()).replace("$NEW_VERSION", newVersion.getPath()).replace("$EXECUTABLE_TO_START", executable));
 		}
 
 		ProcessBuilder processBuilder = new ProcessBuilder("cmd", "/C", restartBat.getName());
