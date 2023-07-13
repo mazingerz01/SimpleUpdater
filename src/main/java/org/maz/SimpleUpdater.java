@@ -14,6 +14,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Optional;
 
+import static java.util.function.Predicate.not;
+
 
 public class SimpleUpdater {
 
@@ -70,21 +72,25 @@ public class SimpleUpdater {
 	 * After downloading and extracting the new version contained in a temporary directory, start this method and exit your application.
 	 * The current version directory will be deleted and the temporary directory will be renamed to the name of the latter.
 	 *
-	 * @param currentVersion The directory containing all files of the current version. e.g.: [pathTo]/MyApp containing
-	 *                       MyApp/myApp.exe, MyApp/myAppResources,...
-	 * @param newVersion     The temporary directory containing all files of the new version incl. an executable.
-	 * @param executable     Name of the executable to be started after updating.
+	 * @param newVersion The temporary directory containing all files of the new version incl. an executable.
+	 * @param executable Name of the executable to be started after updating.
 	 */
-	public static void updateAndRestart(File currentVersion, File newVersion, String executable) throws IOException {
-		if (!(currentVersion.exists() && currentVersion.isDirectory() && newVersion.exists() && newVersion.isDirectory()))
-			throw new IOException("Provided paths are not existent or not a directory.");
-
+	public static void updateAndRestart(File newVersion, File executable) throws IOException {
+//		if (!(newVersion.exists() && newVersion.isDirectory() && executable.exists() && executable.isFile()))
+//			throw new IOException("Provided paths are not existent or not a directory.");
+		File rootDir = new File(System.getProperty("user.dir"));
 		File restartBat = new File("restart.bat");
-		BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(restartBat.getName()));
+		System.out.println("xxxm: " + System.getProperty("user.dir"));
+		//xxxm jetzt sollte es funzn
+		System.out.printf("xxxm4 " + restartBat.getAbsolutePath() + "   " + restartBat.getName());
+		BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(restartBat.getAbsolutePath()));
 		BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(SimpleUpdater.class.getClassLoader().getResourceAsStream("restartTemplate.bat"), StandardCharsets.UTF_8));
+		String filesToKeep = Arrays.stream(rootDir.list()).filter(not(name -> name.equals(newVersion.getName())).and(not(name -> name.equals(restartBat.getName())))).toString();
 		for (String line : bufferedReader.lines().toList()) {
-			bufferedWriter.append(line.replace("$CURRENT_VERSION", currentVersion.getPath()).replace("$NEW_VERSION", newVersion.getPath()).replace("$EXECUTABLE_TO_START", executable));
+			bufferedWriter.write(line.replace("$CURRENT_CONTENT", filesToKeep).replace("$NEW_VERSION", newVersion.getPath()).replace("$EXECUTABLE_TO_START", executable.getName()));
+			bufferedWriter.newLine();
 		}
+		bufferedWriter.close();
 
 		ProcessBuilder processBuilder = new ProcessBuilder("cmd", "/C", restartBat.getName());
 		//processBuilder.directory(new File(""));
