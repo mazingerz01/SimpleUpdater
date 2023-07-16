@@ -1,5 +1,5 @@
 powershell -noprofile -command "& {[system.threading.thread]::sleep(5000)}"
-del /F /S /Q $TODO_PLACEHOLDERS
-xcopy "xxxnewversionxxxx"\*.* .\ /E /Y /Q
-rmdir /S /Q "xxxnewversionxxxx"
-cmd /c start /B "newVersExecut"
+del /F /Q $CURRENT_CONTENT
+xcopy "$NEW_VERSION"\*.* .\ /E /Y /Q
+rmdir /S /Q "$NEW_VERSION"
+cmd /c start /B "$EXECUTABLE_TO_START"

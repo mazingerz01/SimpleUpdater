@@ -13,6 +13,7 @@ import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static java.util.function.Predicate.not;
 
@@ -85,9 +86,14 @@ public class SimpleUpdater {
 		System.out.printf("xxxm4 " + restartBat.getAbsolutePath() + "   " + restartBat.getName());
 		BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(restartBat.getAbsolutePath()));
 		BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(SimpleUpdater.class.getClassLoader().getResourceAsStream("restartTemplate.bat"), StandardCharsets.UTF_8));
-		String filesToKeep = Arrays.stream(rootDir.list()).filter(not(name -> name.equals(newVersion.getName())).and(not(name -> name.equals(restartBat.getName())))).toString();
+		String filesToDelete = Arrays.stream(rootDir.list()).filter(
+				  not(name -> name.equals(newVersion.getName()))
+							 .and(not(name -> name.equals(restartBat.getName())))).collect(Collectors.joining(" "));
 		for (String line : bufferedReader.lines().toList()) {
-			bufferedWriter.write(line.replace("$CURRENT_CONTENT", filesToKeep).replace("$NEW_VERSION", newVersion.getPath()).replace("$EXECUTABLE_TO_START", executable.getName()));
+			bufferedWriter.write(line
+					                       .replace("$CURRENT_CONTENT", filesToDelete)
+					                       .replace("$NEW_VERSION", newVersion.getPath())
+					                       .replace("$EXECUTABLE_TO_START", executable.getName()));
 			bufferedWriter.newLine();
 		}
 		bufferedWriter.close();
@@ -97,7 +103,7 @@ public class SimpleUpdater {
 		processBuilder.inheritIO();
 		processBuilder.redirectError(ProcessBuilder.Redirect.DISCARD);
 		processBuilder.redirectOutput(ProcessBuilder.Redirect.DISCARD);
-		processBuilder.start();
+		//processBuilder.start();
 
 	}
 }
