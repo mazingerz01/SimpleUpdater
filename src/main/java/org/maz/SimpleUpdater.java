@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.Random;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -81,9 +82,9 @@ public class SimpleUpdater {
 	 * @param executable Name of the executable to be started after updating.
 	 */
 	public static void updateAndRestart(File newVersion, File executable) throws IOException {
-//		if (!(newVersion.exists() && newVersion.isDirectory() && executable.exists() && executable.isFile()))
+//		if (!(newVersion.exists() && newVersion.isDirectory() && executable.exists() && executable.isFile() && executable.canExecute()))
 //			throw new IOException("Provided paths are not existent or not a directory.");
-		File backupDir = new File("backup" + new Random().nextLong(999999) + "_" + LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+		File backupDir = new File("backup" + new Random().nextLong(999999) + "_" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")));
 		if (!backupDir.mkdir())
 			throw new IOException("Could not create backup directory: " + backupDir.getAbsolutePath());
 		File rootDir = new File(System.getProperty("user.dir"));
@@ -93,18 +94,28 @@ public class SimpleUpdater {
 		System.out.printf("xxxm4 " + restartBat.getAbsolutePath() + "   " + restartBat.getName());
 		BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(restartBat.getAbsolutePath()));
 		BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(SimpleUpdater.class.getClassLoader().getResourceAsStream("restartTemplate.bat"), StandardCharsets.UTF_8));
-		Stream<File> filesToDelete = Arrays.stream(rootDir.listFiles()).filter(
-				  not(file -> file  .equals(newVersion.getName()))
-							 .and(not(name -> name.equals(restartBat.getName())))
-							 .and(not(name -> name.equals("backupLocation")))
-		);
+		Supplier<Stream<File>> filesToDelete = () -> Arrays.stream(rootDir.listFiles()).filter(
+				  not(file -> file.equals(newVersion.getName()))
+							 .and(not(name -> name.equals(restartBat.getName()))));
+		System.out.println("filestodelete=" + filesToDelete.get().peek(file -> System.out.println(file.getName() + ";")));
 		for (String line : bufferedReader.lines().toList()) {
 			if (line.equals("$BACKUP")) {
-				filesToDelete.peek(fileName->bufferedWriter.write())
-
+				filesToDelete.get().peek(file -> {
+					try {
+						if (file.isFile()) {
+							bufferedWriter.write("xcopy " + file.getName() + " " + backupDir.getName() + " /Y /Q");
+							bufferedWriter.newLine();
+						} else if (file.isDirectory()) {
+							bufferedWriter.write("xcopy " + file.getName() + " " + backupDir.getName() + "\\" + file.getName() + " /Y /Q /E /I");
+							bufferedWriter.newLine();
+						}
+					} catch (IOException e) {
+						throw new RuntimeException("Could not write to bat file. " + e);
+					}
+				});
 			} else {
 				bufferedWriter.write(line
-						                       .replace("$CURRENT_CONTENT", filesToDelete.collect(Collectors.joining(" ")))
+						                       .replace("$CURRENT_CONTENT", filesToDelete.get().map(File::getName).collect(Collectors.joining(" ")))
 						                       .replace("$NEW_VERSION", newVersion.getPath())
 						                       .replace("$EXECUTABLE_TO_START", executable.getName()));
 				bufferedWriter.newLine();
