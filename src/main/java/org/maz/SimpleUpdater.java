@@ -10,10 +10,14 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Optional;
+import java.util.Random;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static java.util.function.Predicate.not;
 
@@ -79,6 +83,9 @@ public class SimpleUpdater {
 	public static void updateAndRestart(File newVersion, File executable) throws IOException {
 //		if (!(newVersion.exists() && newVersion.isDirectory() && executable.exists() && executable.isFile()))
 //			throw new IOException("Provided paths are not existent or not a directory.");
+		File backupDir = new File("backup" + new Random().nextLong(999999) + "_" + LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+		if (!backupDir.mkdir())
+			throw new IOException("Could not create backup directory: " + backupDir.getAbsolutePath());
 		File rootDir = new File(System.getProperty("user.dir"));
 		File restartBat = new File("restart.bat");
 		System.out.println("xxxm: " + System.getProperty("user.dir"));
@@ -86,15 +93,22 @@ public class SimpleUpdater {
 		System.out.printf("xxxm4 " + restartBat.getAbsolutePath() + "   " + restartBat.getName());
 		BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(restartBat.getAbsolutePath()));
 		BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(SimpleUpdater.class.getClassLoader().getResourceAsStream("restartTemplate.bat"), StandardCharsets.UTF_8));
-		String filesToDelete = Arrays.stream(rootDir.list()).filter(
-				  not(name -> name.equals(newVersion.getName()))
-							 .and(not(name -> name.equals(restartBat.getName())))).collect(Collectors.joining(" "));
+		Stream<File> filesToDelete = Arrays.stream(rootDir.listFiles()).filter(
+				  not(file -> file  .equals(newVersion.getName()))
+							 .and(not(name -> name.equals(restartBat.getName())))
+							 .and(not(name -> name.equals("backupLocation")))
+		);
 		for (String line : bufferedReader.lines().toList()) {
-			bufferedWriter.write(line
-					                       .replace("$CURRENT_CONTENT", filesToDelete)
-					                       .replace("$NEW_VERSION", newVersion.getPath())
-					                       .replace("$EXECUTABLE_TO_START", executable.getName()));
-			bufferedWriter.newLine();
+			if (line.equals("$BACKUP")) {
+				filesToDelete.peek(fileName->bufferedWriter.write())
+
+			} else {
+				bufferedWriter.write(line
+						                       .replace("$CURRENT_CONTENT", filesToDelete.collect(Collectors.joining(" ")))
+						                       .replace("$NEW_VERSION", newVersion.getPath())
+						                       .replace("$EXECUTABLE_TO_START", executable.getName()));
+				bufferedWriter.newLine();
+			}
 		}
 		bufferedWriter.close();
 

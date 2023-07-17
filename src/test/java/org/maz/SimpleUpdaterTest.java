@@ -3,7 +3,6 @@ package org.maz;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 import java.text.ParseException;
@@ -35,10 +34,11 @@ class SimpleUpdaterTest {
 
 	@Test
 	void updateAndRestart() {
-		try {
-			SimpleUpdater.updateAndRestart(new File("test"), new File("test.exe"));
-		} catch (IOException e) {
-			throw new RuntimeException(e);
-		}
+		// Be careful when developing. Will move your whole project files to a backup directory.
+//		try {
+//			SimpleUpdater.updateAndRestart(new File("test"), new File("test.exe"));
+//		} catch (IOException e) {
+//			throw new RuntimeException(e);
+//		}
 	}
 }
