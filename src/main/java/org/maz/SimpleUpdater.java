@@ -73,6 +73,10 @@ public class SimpleUpdater {
 		}
 		return false;
 	}
+// TODO
+//  -
+//  -combine restartbat with an identity token (same as backup dir) to be deleted AFTER the whole update process. otherwise it will be
+	// deleted while bat file is running.
 
 	/**
 	 * After downloading and extracting the new version contained in a temporary directory, start this method and exit your application.
@@ -82,25 +86,24 @@ public class SimpleUpdater {
 	 * @param executable Name of the executable to be started after updating.
 	 */
 	public static void updateAndRestart(File newVersion, File executable) throws IOException {
-//		if (!(newVersion.exists() && newVersion.isDirectory() && executable.exists() && executable.isFile() && executable.canExecute()))
+//xxxm		if (!(newVersion.exists() && newVersion.isDirectory() && executable.exists() && executable.isFile() && executable.canExecute()))
 //			throw new IOException("Provided paths are not existent or not a directory.");
-		File backupDir = new File("backup" + new Random().nextLong(999999) + "_" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")));
+		final File backupDir = new File("backup" + new Random().nextLong(999999) + "_" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")));
 		if (!backupDir.mkdir())
 			throw new IOException("Could not create backup directory: " + backupDir.getAbsolutePath());
-		File rootDir = new File(System.getProperty("user.dir"));
-		File restartBat = new File("restart.bat");
-		System.out.println("xxxm: " + System.getProperty("user.dir"));
-		//xxxm jetzt sollte es funzn
-		System.out.printf("xxxm4 " + restartBat.getAbsolutePath() + "   " + restartBat.getName());
+		final File rootDir = new File(System.getProperty("user.dir"));
+		final File restartBat = new File("restart.bat");
 		BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(restartBat.getAbsolutePath()));
 		BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(SimpleUpdater.class.getClassLoader().getResourceAsStream("restartTemplate.bat"), StandardCharsets.UTF_8));
 		Supplier<Stream<File>> filesToDelete = () -> Arrays.stream(rootDir.listFiles()).filter(
-				  not(file -> file.equals(newVersion.getName()))
-							 .and(not(name -> name.equals(restartBat.getName()))));
-		System.out.println("filestodelete=" + filesToDelete.get().peek(file -> System.out.println(file.getName() + ";")));
+				  not(file -> ((File)file).getName().equals(newVersion.getName()))  //Why cast necessary????
+							 .and(not(file -> file.equals(restartBat)))
+							 .and(not(file -> file.equals(backupDir)))
+		);
+		filesToDelete.get().forEach(file -> System.out.println(file.getName() + ";"));
 		for (String line : bufferedReader.lines().toList()) {
 			if (line.equals("$BACKUP")) {
-				filesToDelete.get().peek(file -> {
+				filesToDelete.get().forEach(file -> {
 					try {
 						if (file.isFile()) {
 							bufferedWriter.write("xcopy " + file.getName() + " " + backupDir.getName() + " /Y /Q");
@@ -128,7 +131,7 @@ public class SimpleUpdater {
 		processBuilder.inheritIO();
 		processBuilder.redirectError(ProcessBuilder.Redirect.DISCARD);
 		processBuilder.redirectOutput(ProcessBuilder.Redirect.DISCARD);
-		//processBuilder.start();
+		//processBuilder.start();xxxm
 
 	}
 }
