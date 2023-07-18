@@ -20,8 +20,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static java.util.function.Predicate.not;
-
 
 public class SimpleUpdater {
 
@@ -88,17 +86,17 @@ public class SimpleUpdater {
 	public static void updateAndRestart(File newVersion, File executable) throws IOException {
 //xxxm		if (!(newVersion.exists() && newVersion.isDirectory() && executable.exists() && executable.isFile() && executable.canExecute()))
 //			throw new IOException("Provided paths are not existent or not a directory.");
-		final File backupDir = new File("backup" + new Random().nextLong(999999) + "_" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")));
+		final File backupDir = new File("backup" + new Random().nextInt(999999) + "_" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")));
 		if (!backupDir.mkdir())
 			throw new IOException("Could not create backup directory: " + backupDir.getAbsolutePath());
 		final File rootDir = new File(System.getProperty("user.dir"));
 		final File restartBat = new File("restart.bat");
 		BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(restartBat.getAbsolutePath()));
 		BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(SimpleUpdater.class.getClassLoader().getResourceAsStream("restartTemplate.bat"), StandardCharsets.UTF_8));
+
 		Supplier<Stream<File>> filesToDelete = () -> Arrays.stream(rootDir.listFiles()).filter(
-				  not(file -> ((File)file).getName().equals(newVersion.getName()))  //Why cast necessary????
-							 .and(not(file -> file.equals(restartBat)))
-							 .and(not(file -> file.equals(backupDir)))
+				  file -> (!file.getName().equals(newVersion.getName())
+							          && !file.getName().equals(restartBat.getName()) && !file.getName().equals(backupDir.getName()))
 		);
 		filesToDelete.get().forEach(file -> System.out.println(file.getName() + ";"));
 		for (String line : bufferedReader.lines().toList()) {
