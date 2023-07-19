@@ -15,7 +15,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Optional;
-import java.util.Random;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -73,8 +72,8 @@ public class SimpleUpdater {
 	}
 // TODO
 //  -
-//  -combine restartbat with an identity token (same as backup dir) to be deleted AFTER the whole update process. otherwise it will be
-	// deleted while bat file is running.
+//  - find last backup dir (create some id-textfile in backup dir to make sure) for cleanup and check
+
 
 	/**
 	 * After downloading and extracting the new version contained in a temporary directory, start this method and exit your application.
@@ -86,17 +85,17 @@ public class SimpleUpdater {
 	public static void updateAndRestart(File newVersion, File executable) throws IOException {
 //xxxm		if (!(newVersion.exists() && newVersion.isDirectory() && executable.exists() && executable.isFile() && executable.canExecute()))
 //			throw new IOException("Provided paths are not existent or not a directory.");
-		final File backupDir = new File("backup" + new Random().nextInt(999999) + "_" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")));
+		final File backupDir = new File("backup" + "_" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS")));
 		if (!backupDir.mkdir())
 			throw new IOException("Could not create backup directory: " + backupDir.getAbsolutePath());
+		// Create controlling batch file from template.
 		final File rootDir = new File(System.getProperty("user.dir"));
-		final File restartBat = new File("restart.bat");
-		BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(restartBat.getAbsolutePath()));
+		final File batFile = new File("simpleUpdater.bat");
+		BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(batFile.getAbsolutePath()));
 		BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(SimpleUpdater.class.getClassLoader().getResourceAsStream("restartTemplate.bat"), StandardCharsets.UTF_8));
-
 		Supplier<Stream<File>> filesToDelete = () -> Arrays.stream(rootDir.listFiles()).filter(
 				  file -> (!file.getName().equals(newVersion.getName())
-							          && !file.getName().equals(restartBat.getName()) && !file.getName().equals(backupDir.getName()))
+							          && !file.getName().equals(batFile.getName()) && !file.getName().equals(backupDir.getName()))
 		);
 		filesToDelete.get().forEach(file -> System.out.println(file.getName() + ";"));
 		for (String line : bufferedReader.lines().toList()) {
@@ -124,7 +123,8 @@ public class SimpleUpdater {
 		}
 		bufferedWriter.close();
 
-		ProcessBuilder processBuilder = new ProcessBuilder("cmd", "/C", restartBat.getName());
+		// Execute controlling batch file.
+		ProcessBuilder processBuilder = new ProcessBuilder("cmd", "/C", batFile.getName());
 		//processBuilder.directory(new File(""));
 		processBuilder.inheritIO();
 		processBuilder.redirectError(ProcessBuilder.Redirect.DISCARD);
