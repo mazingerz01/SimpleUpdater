@@ -72,8 +72,8 @@ public class SimpleUpdater {
 	}
 // TODO
 //  -
-//  - find last backup dir (create some id-textfile in backup dir to make sure) for cleanup and check
-
+//  - find last backup dir for cleanup and check
+	// make restart optional
 
 	/**
 	 * After downloading and extracting the new version contained in a temporary directory, start this method and exit your application.
@@ -85,7 +85,7 @@ public class SimpleUpdater {
 	public static void updateAndRestart(File newVersion, File executable) throws IOException {
 //xxxm		if (!(newVersion.exists() && newVersion.isDirectory() && executable.exists() && executable.isFile() && executable.canExecute()))
 //			throw new IOException("Provided paths are not existent or not a directory.");
-		final File backupDir = new File("backup" + "_" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS")));
+		final File backupDir = new File("SimpleUpdaterBackup" + "_" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS")));
 		if (!backupDir.mkdir())
 			throw new IOException("Could not create backup directory: " + backupDir.getAbsolutePath());
 		// Create controlling batch file from template.
@@ -97,7 +97,6 @@ public class SimpleUpdater {
 				  file -> (!file.getName().equals(newVersion.getName())
 							          && !file.getName().equals(batFile.getName()) && !file.getName().equals(backupDir.getName()))
 		);
-		filesToDelete.get().forEach(file -> System.out.println(file.getName() + ";"));
 		for (String line : bufferedReader.lines().toList()) {
 			if (line.equals("$BACKUP")) {
 				filesToDelete.get().forEach(file -> {
