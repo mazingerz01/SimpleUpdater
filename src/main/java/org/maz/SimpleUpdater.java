@@ -6,12 +6,7 @@
 
 package org.maz;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.charset.StandardCharsets;
@@ -40,30 +35,29 @@ public class SimpleUpdater {
             Optional<String> versionLine = br.lines().filter(line -> line.matches(".*<.*id=\"" + elementId + "\".*>[.\\d]+</.*>")).findFirst();
             if (versionLine.isPresent()) {
                 return versionLine.get().strip().split("<|>")[2];
-            }
-            else {
+            } else {
                 throw new ElementNotFoundException("Element with id '" + elementId + "' not found in '" + url + "'.");
             }
-        }
-        catch (IOException exception) {
+        } catch (IOException exception) {
             throw new IOException("Could not open URL '" + url + "'.");
         }
     }
 
     /**
-     * Compares two version strings in the form of "number[.number.number...]"
+     * Compares two version strings in the form of "number[.number[.number.[...]]]".
+     * E.g. "1.0.9" is a higher version than "0.9.3.2" bc. of "1." > "0.".
      *
-     * @return true if remoteVersionString is higher.
+     * @return true if versionB is a higher version than versionA. Equal versions will result false as result.
      */
-    public static boolean isRemoteVersionNumberHigher(String thisVersion, String remoteVersion) throws ParseException {
-        if (!thisVersion.matches("(\\d?\\.?)+\\d+")) {
-            throw new ParseException("(This) version string '" + thisVersion + "' does not match criteria 'number[.number.number...]'", 0);
+    public static boolean compareVersions(String versionA, String versionB) throws ParseException {
+        if (!versionA.matches("(\\d?\\.?)+\\d+")) {
+            throw new ParseException("(This) version string '" + versionA + "' does not match criteria 'number[.number.number...]'", 0);
         }
-        if (!remoteVersion.matches("(\\d?\\.?)+\\d+")) {
-            throw new ParseException("(Remote) version string '" + remoteVersion + "' does not match criteria 'number[.number.number...]'", 0);
+        if (!versionB.matches("(\\d?\\.?)+\\d+")) {
+            throw new ParseException("(Remote) version string '" + versionB + "' does not match criteria 'number[.number.number...]'", 0);
         }
-        ArrayList<String> thisVers = new ArrayList<>(Arrays.asList(thisVersion.split("\\.")));
-        ArrayList<String> remoteVers = new ArrayList<>(Arrays.asList(remoteVersion.split("\\.")));
+        ArrayList<String> thisVers = new ArrayList<>(Arrays.asList(versionA.split("\\.")));
+        ArrayList<String> remoteVers = new ArrayList<>(Arrays.asList(versionB.split("\\.")));
         // Make list of version tokens the same size for save comparison.
         int maxLength = Math.max(thisVers.size(), remoteVers.size());
         for (int i = thisVers.size(); i < maxLength; i++) {
@@ -73,8 +67,11 @@ public class SimpleUpdater {
             remoteVers.add("0");
         }
         for (int i = 0; i < maxLength; i++) {
-            if (Integer.parseInt(remoteVers.get(i)) > Integer.parseInt(thisVers.get(i))) {return true;}
-            else if (Integer.parseInt(remoteVers.get(i)) < Integer.parseInt(thisVers.get(i))) {return false;}
+            if (Integer.parseInt(remoteVers.get(i)) > Integer.parseInt(thisVers.get(i))) {
+                return true;
+            } else if (Integer.parseInt(remoteVers.get(i)) < Integer.parseInt(thisVers.get(i))) {
+                return false;
+            }
         }
         return false;
     }
@@ -96,14 +93,14 @@ public class SimpleUpdater {
         if (!backupDir.mkdir()) {
             throw new IOException("Could not create backup directory: " + backupDir.getAbsolutePath());
         }
-        // Create controlling batch file from template.
+        // Create controlling batch file from template.  TODO: remove template, create bat file programtically
         final File rootDir = new File(System.getProperty("user.dir"));
         final File batFile = new File("simpleUpdater.bat");
         BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(batFile.getAbsolutePath()));
         BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(SimpleUpdater.class.getClassLoader().getResourceAsStream("restartTemplate.bat"), StandardCharsets.UTF_8));
         Supplier<Stream<File>> filesToDelete = () -> Arrays.stream(rootDir.listFiles()).filter(
-                file -> (!file.getName().equals(newVersion.getName())
-                         && !file.getName().equals(batFile.getName()) && !file.getName().equals(backupDir.getName()))
+            file -> (!file.getName().equals(newVersion.getName())
+                && !file.getName().equals(batFile.getName()) && !file.getName().equals(backupDir.getName()))
         );
         for (String line : bufferedReader.lines().toList()) {
             if (line.equals("$BACKUP")) {
@@ -112,24 +109,20 @@ public class SimpleUpdater {
                         if (file.isFile()) {
                             bufferedWriter.write("xcopy " + file.getName() + " " + backupDir.getName() + " /Y /Q");
                             bufferedWriter.newLine();
-                        }
-                        else if (file.isDirectory()) {
+                        } else if (file.isDirectory()) {
                             bufferedWriter.write("xcopy " + file.getName() + " " + backupDir.getName() + "\\" + file.getName() + " /Y /Q /E /I");
                             bufferedWriter.newLine();
                         }
-                    }
-                    catch (IOException e) {
+                    } catch (IOException e) {
                         throw new RuntimeException("Could not write to bat file. " + e);
                     }
                 });
-            }
-            else if (line.equals("$RESTART") && restart) {
+            } else if (line.equals("$RESTART") && restart) {
                 bufferedWriter.write("cmd /c start \"\" /I /MIN \"" + executable.getName() + "\"");
                 bufferedWriter.newLine();
-            }
-            else {
+            } else {
                 bufferedWriter.write(line.replace("$CURRENT_CONTENT", filesToDelete.get().map(File::getName).collect(Collectors.joining(" ")))
-                        .replace("$NEW_VERSION", newVersion.getPath()));
+                    .replace("$NEW_VERSION", newVersion.getPath()));
                 bufferedWriter.newLine();
             }
         }
