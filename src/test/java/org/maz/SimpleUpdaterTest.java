@@ -37,7 +37,7 @@ class SimpleUpdaterTest {
     void updateAndRestart() {
         // Be careful when developing. Will move your whole project files to a backup directory.
         try {
-            SimpleUpdater.updateAndRestart(new File("test"), new File("test.exe"), false);
+            SimpleUpdater.updateAndMaybeRestart(new File("test"), new File("test.exe"), false);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

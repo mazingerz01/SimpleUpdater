@@ -9,13 +9,10 @@ package org.maz;
 import java.io.*;
 import java.net.URL;
 import java.net.URLConnection;
-import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Optional;
+import java.util.*;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -86,46 +83,42 @@ public class SimpleUpdater {
      * @param newVersion The temporary directory containing all files of the new version incl. an executable.
      * @param executable Name of the executable to be started after updating.
      */
-    public static void updateAndRestart(File newVersion, File executable, boolean restart) throws IOException {
+    public static void updateAndMaybeRestart(File newVersion, File executable, boolean restart, boolean backup) throws IOException {
 //xxxm		if (!(newVersion.exists() && newVersion.isDirectory() && executable.exists() && executable.isFile() && executable.canExecute()))
 //			throw new IOException("Provided paths are not existent or not a directory.");
-        final File backupDir = new File("SimpleUpdaterBackup" + "_" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS")));
-        if (!backupDir.mkdir()) {
-            throw new IOException("Could not create backup directory: " + backupDir.getAbsolutePath());
+
+        final File rootDir = new File(System.getProperty("user.dir")); // current working directory
+        if (rootDir.listFiles() == null) {
+            throw new IOException("Current directory (" + rootDir + ") is empty. Expected: actual running program and new version.");
         }
-        // Create controlling batch file from template.  TODO: remove template, create bat file programtically
-        final File rootDir = new File(System.getProperty("user.dir"));
-        final File batFile = new File("simpleUpdater.bat");
-        BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(batFile.getAbsolutePath()));
-        BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(SimpleUpdater.class.getClassLoader().getResourceAsStream("restartTemplate.bat"), StandardCharsets.UTF_8));
-        Supplier<Stream<File>> filesToDelete = () -> Arrays.stream(rootDir.listFiles()).filter(
-            file -> (!file.getName().equals(newVersion.getName())
-                && !file.getName().equals(batFile.getName()) && !file.getName().equals(backupDir.getName()))
-        );
-        for (String line : bufferedReader.lines().toList()) {
-            if (line.equals("$BACKUP")) {
-                filesToDelete.get().forEach(file -> {
-                    try {
-                        if (file.isFile()) {
-                            bufferedWriter.write("xcopy " + file.getName() + " " + backupDir.getName() + " /Y /Q");
-                            bufferedWriter.newLine();
-                        } else if (file.isDirectory()) {
-                            bufferedWriter.write("xcopy " + file.getName() + " " + backupDir.getName() + "\\" + file.getName() + " /Y /Q /E /I");
-                            bufferedWriter.newLine();
-                        }
-                    } catch (IOException e) {
-                        throw new RuntimeException("Could not write to bat file. " + e);
-                    }
-                });
-            } else if (line.equals("$RESTART") && restart) {
-                bufferedWriter.write("cmd /c start \"\" /I /MIN \"" + executable.getName() + "\"");
-                bufferedWriter.newLine();
-            } else {
-                bufferedWriter.write(line.replace("$CURRENT_CONTENT", filesToDelete.get().map(File::getName).collect(Collectors.joining(" ")))
-                    .replace("$NEW_VERSION", newVersion.getPath()));
-                bufferedWriter.newLine();
+        Supplier<Stream<File>> filesToDelete = () -> Arrays.stream(Objects.requireNonNull(rootDir.listFiles())).filter(
+            file -> (!file.getName().equals(newVersion.getName())));
+
+        // Create backup directory
+        File backupDir = null;
+        if (backup) {
+            backupDir = new File("SimpleUpdaterBackup" + "_" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS")));
+            if (!backupDir.mkdir()) {
+                throw new IOException("Could not create backup directory: " + backupDir.getAbsolutePath());
             }
         }
+
+        // Create controlling batch file
+        final File batFile = new File("simpleUpdater.bat");
+        BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(batFile.getAbsolutePath()));
+        bufferedWriter.write("powershell -noprofile -command \"& {[system.threading.thread]::sleep(5000)}\"");
+        bufferedWriter.newLine();
+        if (backup) {
+            for (String s : createBackupLines(backupDir, filesToDelete)) {
+                bufferedWriter.write(s);
+            }
+        }
+        bufferedWriter.write("del /F /Q " + filesToDelete.get().map(File::getName).collect(Collectors.joining(" ")));
+        bufferedWriter.write("xcopy \"" + newVersion.getPath() + "\" \\*.* .\\ /E /Y /Q");
+        bufferedWriter.write("rmdir /S /Q \"" + newVersion.getPath() + "\"");
+        if (restart)
+            bufferedWriter.write("cmd /c start \"\" /I /MIN \"" + executable.getName() + "\"");
+        bufferedWriter.write("del /F /Q simpleUpdater.bat");
         bufferedWriter.close();
 
         // Execute controlling batch file.
@@ -137,4 +130,21 @@ public class SimpleUpdater {
         //processBuilder.start();xxxm
 
     }
+
+    private static List<String> createBackupLines(File backupDir, Supplier<Stream<File>> filesToDelete) throws IOException {
+        ArrayList<String> ret = new ArrayList<>();
+        filesToDelete.get().forEach(file -> {
+            if (file.isFile()) {
+                ret.add("xcopy " + file.getName() + " " + backupDir.getName() + " /Y /Q");
+            } else if (file.isDirectory()) {
+                ret.add("xcopy " + file.getName() + " " + backupDir.getName() + "\\" + file.getName() + " /Y /Q /E /I");
+            }
+        });
+        return ret;
+    }
+
+    private static void appendWithNewLine(BufferedWriter bufferedWriter, String s) {
+        // TODO   and TODO oben austauschen
+    }
+
 }
