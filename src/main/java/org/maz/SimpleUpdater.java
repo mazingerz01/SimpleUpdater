@@ -73,26 +73,38 @@ public class SimpleUpdater {
         return false;
     }
 // TODO
-//  -
+//  - Simple Download and extract newVersion as directory in zip file
 //  - find last backup dir for cleanup and check, create cleanup method (remove backup)
+
 
     /**
      * After downloading and extracting the new version contained in a temporary directory, start this method and exit your application.
      * The current version directory will be deleted and the temporary directory will be renamed to the name of the latter.
      *
      * @param newVersion The temporary directory containing all files of the new version incl. an executable.
-     * @param executable Name of the executable to be started after updating.
+     * @param executable The new version executable to be started after updating. Null if start is not required.
+     * @param backup     If true, a backup directory "SimpleUpdaterBackup_yyyyMMddHHmmssSSS" will be created. The content
+     *                   of the current directory will be copied there after the original program was closed.
      */
-    public static void updateAndMaybeRestart(File newVersion, File executable, boolean restart, boolean backup) throws IOException {
-//xxxm		if (!(newVersion.exists() && newVersion.isDirectory() && executable.exists() && executable.isFile() && executable.canExecute()))
-//			throw new IOException("Provided paths are not existent or not a directory.");
+    public static void updateAndMaybeRestart(File newVersion, File executable, boolean backup) throws IOException {
+        boolean restart = executable != null;
+        if (!(newVersion.exists() && newVersion.isDirectory()))
+            throw new IOException("Provided paths are not existent or not a directory.");
+        if (restart && !(executable.exists() && executable.isFile() && executable.canExecute())) {
+            throw new IOException("Provided executable is not existent or not a file.");
+        }
+        if (restart && !executable.canExecute()) {
+            throw new IOException("Provided executable is not executable.");
+        }
 
         final File rootDir = new File(System.getProperty("user.dir")); // current working directory
         if (rootDir.listFiles() == null) {
             throw new IOException("Current directory (" + rootDir + ") is empty. Expected: actual running program and new version.");
         }
-        Supplier<Stream<File>> filesToDelete = () -> Arrays.stream(Objects.requireNonNull(rootDir.listFiles())).filter(
-            file -> (!file.getName().equals(newVersion.getName())));
+
+        // Create controlling batch file
+        final File batFile = new File("simpleUpdater.bat");
+        BufferedWriter batFileBufferedWriter = new BufferedWriter(new FileWriter(batFile.getAbsolutePath()));
 
         // Create backup directory
         File backupDir = null;
@@ -103,25 +115,26 @@ public class SimpleUpdater {
             }
         }
 
-        // Create controlling batch file
-        final File batFile = new File("simpleUpdater.bat");
-        BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(batFile.getAbsolutePath()));
-        bufferedWriter.write("powershell -noprofile -command \"& {[system.threading.thread]::sleep(5000)}\"");
-        bufferedWriter.newLine();
+        Supplier<Stream<File>> oldVersionFiles = () -> Arrays.stream(Objects.requireNonNull(rootDir.listFiles())).filter(
+            file -> (!file.getName().equals(newVersion.getName())) && !file.getName().equals(batFile.getName()));
+
+        // Fill controlling bat file
+        writeWithNewLine(batFileBufferedWriter, "powershell -noprofile -command \"& {[system.threading.thread]::sleep(5000)}\"");
         if (backup) {
-            for (String s : createBackupLines(backupDir, filesToDelete)) {
-                bufferedWriter.write(s);
+            for (String s : createBackupLines(backupDir, oldVersionFiles)) {
+                writeWithNewLine(batFileBufferedWriter, s);
             }
         }
-        bufferedWriter.write("del /F /Q " + filesToDelete.get().map(File::getName).collect(Collectors.joining(" ")));
-        bufferedWriter.write("xcopy \"" + newVersion.getPath() + "\" \\*.* .\\ /E /Y /Q");
-        bufferedWriter.write("rmdir /S /Q \"" + newVersion.getPath() + "\"");
-        if (restart)
-            bufferedWriter.write("cmd /c start \"\" /I /MIN \"" + executable.getName() + "\"");
-        bufferedWriter.write("del /F /Q simpleUpdater.bat");
-        bufferedWriter.close();
+        writeWithNewLine(batFileBufferedWriter, "del /F /Q " + oldVersionFiles.get().map(File::getName).collect(Collectors.joining(" ")));
+        writeWithNewLine(batFileBufferedWriter, "xcopy \"" + newVersion.getPath() + "\" \\*.* .\\ /E /Y /Q");
+        writeWithNewLine(batFileBufferedWriter, "rmdir /S /Q \"" + newVersion.getPath() + "\"");
+        if (restart) {
+            writeWithNewLine(batFileBufferedWriter, "cmd /c start \"\" /I /MIN \"" + executable.getName() + "\"");
+        }
+        writeWithNewLine(batFileBufferedWriter, "del /F /Q simpleUpdater.bat");
+        batFileBufferedWriter.close();
 
-        // Execute controlling batch file.
+        // Execute controlling batch file
         ProcessBuilder processBuilder = new ProcessBuilder("cmd", "/C", batFile.getName());
         //processBuilder.directory(new File(""));
         processBuilder.inheritIO();
@@ -143,8 +156,9 @@ public class SimpleUpdater {
         return ret;
     }
 
-    private static void appendWithNewLine(BufferedWriter bufferedWriter, String s) {
-        // TODO   and TODO oben austauschen
+    private static void writeWithNewLine(BufferedWriter bufferedWriter, String s) throws IOException {
+        bufferedWriter.write(s);
+        bufferedWriter.newLine();
     }
 
 }
