@@ -31,7 +31,7 @@ public class SimpleUpdater {
         try (BufferedReader br = new BufferedReader(new InputStreamReader(connection.getInputStream(), encoding != null ? encoding : "UTF-8"))) {
             Optional<String> versionLine = br.lines().filter(line -> line.matches(".*<.*id=\"" + elementId + "\".*>[.\\d]+</.*>")).findFirst();
             if (versionLine.isPresent()) {
-                return versionLine.get().strip().split("<|>")[2];
+                return versionLine.get().strip().split("[<>]")[2];
             } else {
                 throw new ElementNotFoundException("Element with id '" + elementId + "' not found in '" + url + "'.");
             }
@@ -44,7 +44,7 @@ public class SimpleUpdater {
      * Compares two version strings in the form of "number[.number[.number.[...]]]".
      * E.g. "1.0.9" is a higher version than "0.9.3.2" bc. of "1." > "0.".
      *
-     * @return true if versionB is a higher version than versionA. Equal versions will result false as result.
+     * @return true if versionB is a higher version than versionA. Equal versions return false.
      */
     public static boolean compareVersions(String versionA, String versionB) throws ParseException {
         if (!versionA.matches("(\\d?\\.?)+\\d+")) {
@@ -144,7 +144,7 @@ public class SimpleUpdater {
 
     }
 
-    private static List<String> createBackupLines(File backupDir, Supplier<Stream<File>> filesToDelete) throws IOException {
+    private static List<String> createBackupLines(File backupDir, Supplier<Stream<File>> filesToDelete) {
         ArrayList<String> ret = new ArrayList<>();
         filesToDelete.get().forEach(file -> {
             if (file.isFile()) {
