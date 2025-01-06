@@ -39,6 +39,7 @@ public class SimpleUpdater {
             throw new IOException("Could not open URL '" + url + "'.");
         }
     }
+    
 
     /**
      * Compares two version strings in the form of "number[.number[.number.[...]]]".
