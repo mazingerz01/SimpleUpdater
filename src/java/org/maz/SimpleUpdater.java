@@ -40,7 +40,6 @@ public class SimpleUpdater {
         }
     }
     
-
     /**
      * Compares two version strings in the form of "number[.number[.number.[...]]]".
      * E.g. "1.0.9" is a higher version than "0.9.3.2" bc. of "1." > "0.".

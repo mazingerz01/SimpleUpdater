@@ -29,7 +29,7 @@ class SimpleUpdaterTest {
             Assertions.assertThrows(ParseException.class, () -> SimpleUpdater.isVersionHigher("abc", "0.1"));
             Assertions.assertThrows(ParseException.class, () -> SimpleUpdater.isVersionHigher("0.1", "foo"));
         } catch (ParseException e) {
-            System.out.println(e);
+            System.out.println(e.getMessage());
         }
     }
 }
