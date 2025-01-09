@@ -39,7 +39,7 @@ public class SimpleUpdater {
             throw new IOException("Could not open URL '" + url + "'.");
         }
     }
-    
+
     /**
      * Compares two version strings in the form of "number[.number[.number.[...]]]".
      * E.g. "1.0.9" is a higher version than "0.9.3.2" bc. of "1." > "0.".
@@ -74,7 +74,7 @@ public class SimpleUpdater {
     }
 
     public static void downloadAndExtract(String fileUrl, String outputDir) throws IOException {
-        ZipDownloadUtil.downloadAndExtractZip(fileUrl, outputDir);
+        ZipDownloadUtil.downloadAndExtractZip(new URL(fileUrl), outputDir);
     }
 
 
