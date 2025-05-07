@@ -1,3 +1,5 @@
+# Currently under construction!
+---
 # A zero dependency library to download a new version of your program and to restart it.
 ### What it does
 - Check a local version string of your application against a version string on an URL and tell if there is a newer version available
